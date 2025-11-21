@@ -1,0 +1,37 @@
+services:
+  prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile_prod
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: mysql+pymysql://microblog:password@db/microblog
+  test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile_test
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: mysql+pymysql://microblog:password@db/microblog_test
+    volumes:
+      - ./app:/home/microblog/app
+      - ./tests:/home/microblog/tests
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_USER: microblog
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: microblog
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+volumes:
+  db-data:
+
+
+
