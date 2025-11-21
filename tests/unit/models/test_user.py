@@ -3,7 +3,7 @@ Contains tests for app.models.User class
 """
 # pylint: disable=redefined-outer-name
 from datetime import datetime, timedelta
-from unittest import mock
+
 import pytest
 from app.models import User, Post
 from app import db
@@ -21,7 +21,7 @@ def user1():
         about_me="Hello",
     )
 
-def test_follow(test_app): # pylint: disable=unused-argument
+def test_follow():
     """
     Test that follow appends new Users to followed.
     Test that unfollow removes the User from followed.
@@ -48,7 +48,7 @@ def test_follow(test_app): # pylint: disable=unused-argument
     assert user1.followed.count() == 0
     assert user1.followers.count() == 0
 
-def test_follow_posts(test_app): # pylint: disable=unused-argument
+def test_follow_posts():
     """
     Test that all personal and posts from followed users are shown.
     """
@@ -99,7 +99,7 @@ def test_new_user(user1):
     assert user1.about_me == 'Hello'
     assert str(user1) == "<User john, john@example.com>"
 
-def test_password_hashing(test_app, user1):
+def test_password_hashing(user1):
     """
     Test setting password for user
     """
@@ -107,7 +107,7 @@ def test_password_hashing(test_app, user1):
     assert user1.check_password('dog') is False
     assert user1.check_password('cat') is True
 
-def test_avatar(test_app, user1):
+def test_avatar(user1):
     """
     Test creation of Gravatar URL
     """
