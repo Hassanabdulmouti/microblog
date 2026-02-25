@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, kmom02 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, kmom02 ]
   workflow_call:
 
 jobs:
