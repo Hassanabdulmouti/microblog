@@ -2,8 +2,9 @@
 Contains routes for main purpose of app
 app/main/routes.py
 """
+import subprocess
 from datetime import datetime
-from flask import render_template, flash, redirect, url_for, request, current_app
+from flask import render_template, flash, redirect, url_for, request, current_app, jsonify
 from flask_login import current_user, login_required
 from app import db
 from app.main.forms import EditProfileForm, PostForm
@@ -20,6 +21,22 @@ def before_request():
         current_user.last_seen = datetime.utcnow()
         current_app.logger.debug(f"{current_user} is authenticated")
         db.session.commit()
+
+
+
+@bp.route('/version')
+def version():
+    """
+    Route that returns the current app version (git tag or commit)
+    """
+    try:
+        ver = subprocess.check_output(
+            ['git', 'describe', '--tags', '--always'],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        ver = 'unknown'
+    return jsonify(version=ver)
 
 
 
