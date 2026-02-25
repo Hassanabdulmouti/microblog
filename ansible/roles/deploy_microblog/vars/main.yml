@@ -1,0 +1,10 @@
+---
+app_dir: /home/deploy/microblog
+repo_url: "https://github.com/Hassanabdulmouti/microblog.git"
+app_version: "master"
+packages:
+    - python3-venv
+    - python3-dev
+    - supervisor
+    - git
+    - make
