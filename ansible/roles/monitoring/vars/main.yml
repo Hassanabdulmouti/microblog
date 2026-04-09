@@ -1,0 +1,11 @@
+---
+packages:
+    - prometheus
+    - prometheus-alertmanager
+    - adduser
+    - libfontconfig1
+
+grafana_version: "10.4.3"
+grafana_admin_user: admin
+grafana_admin_password: "admin"
+webhook_url: "https://webhook.site/YOUR_WEBHOOK_SITE_ID"

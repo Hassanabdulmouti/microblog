@@ -1,0 +1,30 @@
+---
+-   import_playbook: gather_instances.yml
+
+-   hosts: appserver
+    remote_user: "deploy"
+    become: yes
+    become_method: sudo
+    vars:
+        app_dir: /home/deploy/microblog
+        app_version: "kmom04"
+    tasks:
+        -   name: Pull latest code
+            git:
+                repo: "https://github.com/Hassanabdulmouti/microblog.git"
+                dest: "{{ app_dir }}"
+                version: "{{ app_version }}"
+                force: yes
+            become_user: deploy
+
+        -   name: Install requirements
+            pip:
+                requirements: "{{ app_dir }}/requirements/prod.txt"
+                virtualenv: "{{ app_dir }}/venv"
+                virtualenv_command: python3 -m venv
+            become_user: deploy
+
+        -   name: Restart microblog via supervisor
+            supervisorctl:
+                name: microblog
+                state: restarted

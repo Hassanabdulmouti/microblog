@@ -1,10 +1,9 @@
 ---
 -   import_playbook: gather_instances.yml
 
--   hosts:
-        -   devops
-    remote_user: azureuser
+-   hosts: devops
+    remote_user: "deploy"
     become: yes
     become_method: sudo
     roles:
-        -   10-first-minutes
+        - node_exporter

@@ -3,6 +3,7 @@
     azure_rm_publicipaddress:
         resource_group: "{{ resource_group }}"
         allocation_method: Static
+        sku: Standard
         name: "{{ iname }}-ip"
         tags: "{{ vmtags }}"
     delegate_to: localhost

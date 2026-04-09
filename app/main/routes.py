@@ -24,6 +24,11 @@ def before_request():
 
 
 
+@bp.route('/debug/error')
+def trigger_error():
+    raise Exception("Monitoring test error - this is intentional")
+
+
 @bp.route('/version')
 def version():
     """
