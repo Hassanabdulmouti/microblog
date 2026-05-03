@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: microblog
+  namespace: samra
+  labels:
+    app.kubernetes.io/name: microblog
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: microblog
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microblog
+  namespace: samra
+  labels:
+    app.kubernetes.io/name: microblog
+    app.kubernetes.io/component: web
+spec:
+  replicas: 2
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microblog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microblog
+        app.kubernetes.io/component: web
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: microblog
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: microblog
+          image: hassanabdulmouti/microblog:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5000
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: microblog-secrets
+                  key: SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: microblog-secrets
+                  key: DATABASE_URL
+          startupProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 150Mi
+            limits:
+              memory: 512Mi

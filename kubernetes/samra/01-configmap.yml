@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microblog-config
+  namespace: samra
+  labels:
+    app.kubernetes.io/name: microblog
+    app.kubernetes.io/component: config
+data:
+  MYSQL_DATABASE: microblog
+  MYSQL_USER: microblog
