@@ -23,9 +23,16 @@ sg_groups:
             priority: 1003
             direction: Inbound
             source_address_prefix: '0.0.0.0/0'
+        -   name: NodeExporter
+            protocol: Tcp
+            destination_port_range: 9100
+            access: Allow
+            priority: 1004
+            direction: Inbound
+            source_address_prefix: "{{ groups['monitoring'][0] }}/32"
     -   name: appserver
         port_rules:
-        -   name: APP
+        -   name: SSH
             protocol: Tcp
             destination_port_range: 22
             access: Allow
@@ -38,7 +45,21 @@ sg_groups:
             access: Allow
             priority: 1002
             direction: Inbound
-            source_address_prefix: '0.0.0.0/0'
+            source_address_prefix: "{{ groups['loadbalancer'][0] }}/32"
+        -   name: HTTP-monitoring
+            protocol: Tcp
+            destination_port_range: 8000
+            access: Allow
+            priority: 1003
+            direction: Inbound
+            source_address_prefix: "{{ groups['monitoring'][0] }}/32"
+        -   name: NodeExporter
+            protocol: Tcp
+            destination_port_range: 9100
+            access: Allow
+            priority: 1004
+            direction: Inbound
+            source_address_prefix: "{{ groups['monitoring'][0] }}/32"
     -   name: database
         port_rules:
         -   name: SSH
@@ -48,10 +69,47 @@ sg_groups:
             priority: 1001
             direction: Inbound
             source_address_prefix: '0.0.0.0/0'
-        -   name: MYSQL
+        -   name: MYSQL-appserver1
             protocol: Tcp
             destination_port_range: 3306
             access: Allow
             priority: 1002
+            direction: Inbound
+            source_address_prefix: "{{ groups['appserver'][0] }}/32"
+        -   name: MYSQL-appserver2
+            protocol: Tcp
+            destination_port_range: 3306
+            access: Allow
+            priority: 1003
+            direction: Inbound
+            source_address_prefix: "{{ groups['appserver'][1] }}/32"
+        -   name: NodeExporter
+            protocol: Tcp
+            destination_port_range: 9100
+            access: Allow
+            priority: 1004
+            direction: Inbound
+            source_address_prefix: "{{ groups['monitoring'][0] }}/32"
+    -   name: monitoring
+        port_rules:
+        -   name: SSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 1001
+            direction: Inbound
+            source_address_prefix: '0.0.0.0/0'
+        -   name: Grafana
+            protocol: Tcp
+            destination_port_range: 3000
+            access: Allow
+            priority: 1002
+            direction: Inbound
+            source_address_prefix: "{{ groups['loadbalancer'][0] }}/32"
+        -   name: Prometheus
+            protocol: Tcp
+            destination_port_range: 9090
+            access: Allow
+            priority: 1003
             direction: Inbound
             source_address_prefix: '0.0.0.0/0'

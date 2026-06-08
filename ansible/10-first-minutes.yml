@@ -1,4 +1,6 @@
 ---
+-   import_playbook: gather_instances.yml
+
 -   hosts:
         -   devops
     remote_user: azureuser

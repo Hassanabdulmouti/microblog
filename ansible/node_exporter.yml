@@ -1,0 +1,9 @@
+---
+-   import_playbook: gather_instances.yml
+
+-   hosts: devops
+    remote_user: "deploy"
+    become: yes
+    become_method: sudo
+    roles:
+        - node_exporter

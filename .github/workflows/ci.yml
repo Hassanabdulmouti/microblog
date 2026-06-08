@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, kmom02, kmom03 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, kmom02, kmom03 ]
   workflow_call:
 
 jobs:
@@ -31,3 +31,39 @@ jobs:
     - name: Run checks and tests
       run: |
         make test
+
+  security:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install Bandit
+      run: pip install bandit
+
+    - name: Run Bandit
+      run: bandit -r app/ -ll
+
+    - name: Build Docker image for scanning
+      run: docker build -t microblog:${{ github.sha }} -f docker/Dockerfile_prod .
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: microblog:${{ github.sha }}
+        format: table
+        exit-code: '0'
+        severity: CRITICAL,HIGH
+
+    - name: Run Dockle
+      uses: goodwithtech/dockle-action@main
+      with:
+        image: microblog:${{ github.sha }}
+        exit-code: '0'
+        exit-level: warn

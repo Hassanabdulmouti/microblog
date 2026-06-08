@@ -1,0 +1,74 @@
+---
+-   name: Install packages
+    apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+
+-   name: Ensure correct git remote URL
+    shell: |
+        if [ -d {{ app_dir }}/.git ]; then
+            git -C {{ app_dir }} remote set-url origin {{ repo_url }}
+        fi
+    become_user: deploy
+
+-   name: Clone/update microblog repo
+    git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: "{{ app_version | default('master') }}"
+        force: yes
+    become_user: deploy
+    notify: Reload supervisor
+
+-   name: Create Python venv and install requirements
+    pip:
+        requirements: "{{ app_dir }}/requirements/prod.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+    become_user: deploy
+
+-   name: Install gunicorn and pymysql in venv
+    pip:
+        name:
+            - gunicorn
+            - pymysql
+        virtualenv: "{{ app_dir }}/venv"
+    become_user: deploy
+
+-   name: Template .env file
+    template:
+        src: env.j2
+        dest: "{{ app_dir }}/.env"
+        mode: "0600"
+        owner: deploy
+        group: deploy
+
+-   name: Set FLASK_APP env var and run db upgrade
+    shell: |
+        . {{ app_dir }}/venv/bin/activate
+        export FLASK_APP=microblog.py
+        flask db upgrade
+    args:
+        chdir: "{{ app_dir }}"
+    become_user: deploy
+    run_once: true
+
+-   name: Create log directory
+    file:
+        path: /var/log/microblog
+        state: directory
+        mode: "0777"
+
+-   name: Template supervisor config
+    template:
+        src: supervisor.conf.j2
+        dest: /etc/supervisor/conf.d/microblog.conf
+        mode: "0644"
+    notify: Reload supervisor
+
+-   name: Ensure supervisor is started
+    service:
+        name: supervisor
+        state: started
+        enabled: yes

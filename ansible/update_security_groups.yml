@@ -1,0 +1,8 @@
+---
+-   import_playbook: gather_instances.yml
+
+-   name: update security groups
+    hosts: local
+    gather_facts: False
+    roles:
+        - security_groups
