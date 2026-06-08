@@ -1,8 +1,9 @@
 """
 Contains routes used for authenticating User
 """
-from flask import render_template, redirect, url_for, flash, request, current_app
 from urllib.parse import urlsplit
+
+from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user
 from app import db
 from app.auth import bp
