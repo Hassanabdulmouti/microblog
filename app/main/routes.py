@@ -12,6 +12,12 @@ from app.models import User, Post
 from app.main import bp
 
 
+class MonitoringTestError(Exception):
+    """
+    Exception raised by the monitoring test endpoint.
+    """
+
+
 @bp.before_request
 def before_request():
     """
@@ -26,7 +32,10 @@ def before_request():
 
 @bp.route('/debug/error')
 def trigger_error():
-    raise Exception("Monitoring test error - this is intentional")
+    """
+    Route that intentionally raises an error for monitoring tests.
+    """
+    raise MonitoringTestError("Monitoring test error - this is intentional")
 
 
 @bp.route('/version')
