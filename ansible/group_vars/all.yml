@@ -4,7 +4,8 @@ ansible_python_interpreter: "python3"
 
 region: northeurope
 resource_group: DIDA-HAAD23-DV1673-H25-LP2
-domain_name: haad23-microblog.northeurope.cloudapp.azure.com
+domain_name: haad23-microblog-old.northeurope.cloudapp.azure.com
+app_upstream_host: 172.16.0.8
 
 admin_email: haad23@student.bth.se
 
