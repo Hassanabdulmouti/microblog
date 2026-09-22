@@ -216,3 +216,67 @@ install-deploy:
 	${pip} install -r requirements/deploy.txt
 	${pip} install -r ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
 	cd ansible && ansible-galaxy install -r requirements.yml
+
+# Continuous security: use the same commands locally and in GitHub Actions.
+IMAGE ?= local-microblog:kmom04
+TRIVY_IMAGE ?= aquasec/trivy:latest
+DOCKLE_IMAGE ?= goodwithtech/dockle:v0.4.15
+TRIVY_FLAGS = --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress
+
+# target: build-prod                   - Build the production image for security checks
+.PHONY: build-prod
+build-prod:
+	docker build --pull -t $(IMAGE) -f docker/Dockerfile_prod .
+
+# target: bandit                       - Scan application Python code, including low severity findings
+.PHONY: bandit
+bandit:
+	${py} -m bandit -r app
+
+# target: trivy-image                  - Scan the locally built production image
+.PHONY: trivy-image
+trivy-image:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+		-v microblog-trivy-cache:/root/.cache/trivy $(TRIVY_IMAGE) \
+		image $(TRIVY_FLAGS) $(IMAGE)
+
+# target: trivy-fs                     - Scan the repository for vulnerabilities, secrets and misconfiguration
+.PHONY: trivy-fs
+trivy-fs:
+	docker run --rm -v "$(CURDIR):/repo:ro" -w /repo \
+		-v microblog-trivy-cache:/root/.cache/trivy $(TRIVY_IMAGE) \
+		fs $(TRIVY_FLAGS) --skip-dirs .venv,venv,.deployment \
+		--file-patterns 'dockerfile:docker/Dockerfile_*' \
+		--file-patterns 'pip:requirements/.*\.txt' .
+
+# target: dockle                       - Lint the production image using Dockle through Docker
+.PHONY: dockle
+dockle:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+		-v "$(CURDIR)/.dockleignore:/.dockleignore:ro" \
+		$(DOCKLE_IMAGE) --exit-code 1 --exit-level warn $(IMAGE)
+
+# target: security                     - Build and run all required security checks
+.PHONY: security
+security: build-prod
+	$(MAKE) bandit
+	$(MAKE) trivy-image
+	$(MAKE) trivy-fs
+	$(MAKE) dockle
+
+# target: monitoring-up                - Start the complete local monitoring demo
+.PHONY: monitoring-up
+monitoring-up:
+	${py} monitoring/render_local.py
+	docker compose -f monitoring/compose.yml up -d --build
+
+# target: monitoring-check             - Validate alert rules and check error-to-webhook delivery
+.PHONY: monitoring-check
+monitoring-check:
+	docker compose -f monitoring/compose.yml run --rm --no-deps -v "$(CURDIR)/monitoring:/work:ro" -w /work --entrypoint promtool prometheus test rules rules.test.yml
+	${py} monitoring/check.py
+
+# target: monitoring-down              - Stop the local demo while preserving data
+.PHONY: monitoring-down
+monitoring-down:
+	docker compose -f monitoring/compose.yml down

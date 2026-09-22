@@ -1,0 +1,32 @@
+rule_files:
+  - generated/alert_rules.yml
+evaluation_interval: 15s
+tests:
+  - name: no errors means no error alert
+    interval: 15s
+    input_series:
+      - series: 'microblog_errors_total{job="microblog",instance="app:5000",endpoint="main.trigger_error"}'
+        values: '0+0x24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: MicroblogApplicationError
+        exp_alerts: []
+  - name: the first error fires and later resolves
+    interval: 15s
+    input_series:
+      - series: 'microblog_errors_total{job="microblog",instance="app:5000",endpoint="main.trigger_error"}'
+        values: '0 0 1+0x26'
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: MicroblogApplicationError
+        exp_alerts:
+          - exp_labels:
+              instance: app:5000
+              endpoint: main.trigger_error
+              severity: critical
+            exp_annotations:
+              summary: Microblog application error
+              description: An application exception occurred during the last five minutes. Inspect the Microblog application dashboard.
+      - eval_time: 6m
+        alertname: MicroblogApplicationError
+        exp_alerts: []

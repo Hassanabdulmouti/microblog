@@ -8,3 +8,7 @@ __pycache__
 
 
 
+
+.deployment
+ansible/kmom04.private.yml
+ansible/kmom04.inventory.yml

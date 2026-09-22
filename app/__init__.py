@@ -12,7 +12,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_moment import Moment
 from flask_bootstrap import Bootstrap
-from prometheus_flask_exporter import PrometheusMetrics
+from app.monitoring import init_monitoring
 from app.config import ProdConfig, RequestFormatter
 
 
@@ -24,7 +24,7 @@ login.login_view = 'auth.login'
 login.login_message = 'Please log in to access this page.'
 bootstrap = Bootstrap()
 moment = Moment()
-metrics = PrometheusMetrics.for_app_factory()
+
 
 
 
@@ -40,7 +40,7 @@ def create_app(config_class=ProdConfig):
     login.init_app(app)
     moment.init_app(app)
     bootstrap.init_app(app)
-    metrics.init_app(app)
+
     
 
     #pylint: disable=wrong-import-position, cyclic-import, import-outside-toplevel
@@ -52,6 +52,7 @@ def create_app(config_class=ProdConfig):
 
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
+    init_monitoring(app)
     #pylint: enable=wrong-import-position, cyclic-import, import-outside-toplevel
 
 

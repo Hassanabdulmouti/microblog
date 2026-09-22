@@ -1,29 +1,27 @@
 groups:
   - name: microblog_alerts
     rules:
-      - alert: HighErrorRate
-        expr: rate(flask_http_request_total{status="500"}[5m]) > 0
+      - alert: MicroblogApplicationError
+        expr: sum by (instance, endpoint) (increase(microblog_errors_total{job="microblog"}[5m])) > 0
         for: 0m
         labels:
           severity: critical
         annotations:
-          summary: "High HTTP 500 error rate on microblog"
-          description: "HTTP 500 errors detected in the last 5 minutes."
-
+          summary: "Microblog application error"
+          description: "An application exception occurred during the last five minutes. Inspect the Microblog application dashboard."
       - alert: InstanceDown
-        expr: up == 0
+        expr: up{job=~"microblog|node_exporter"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Instance {{ "{{ $labels.instance }}" }} is down"
-          description: "{{ "{{ $labels.instance }}" }} has been unreachable for more than 1 minute."
-
+          summary: "Monitoring target is down"
+          description: "A Microblog or node exporter target has been unreachable for one minute."
       - alert: HighCPUUsage
         expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ "{{ $labels.instance }}" }}"
-          description: "CPU usage has been above 80% for 5 minutes."
+          summary: "High CPU usage"
+          description: "CPU usage has been above 80 percent for five minutes."

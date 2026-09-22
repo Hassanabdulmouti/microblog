@@ -1,0 +1,42 @@
+name: Security
+
+on:
+  push:
+    branches: [master, kmom02, kmom03, kmom04]
+  pull_request:
+    branches: [master, kmom02, kmom03, kmom04]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: local-microblog:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies including Bandit
+        run: make install-test
+      - name: Build production image
+        run: make build-prod
+      - name: Bandit application scan
+        run: make bandit
+      - name: Trivy production image scan
+        run: make trivy-image
+      - name: Trivy repository scan
+        run: make trivy-fs
+      - name: Dockle production image scan
+        run: make dockle
+      - name: Save the checked image for CD
+        run: docker save "$IMAGE" -o /tmp/microblog-image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: microblog-image
+          path: /tmp/microblog-image.tar
+          retention-days: 1

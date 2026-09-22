@@ -3,18 +3,24 @@ Fixtures for tests
 """
 # pylint: disable=redefined-outer-name
 import pytest
+from flask_migrate import upgrade
 from app import create_app, db
 from app.config import TestConfig
 
 @pytest.fixture(scope='function')
-def test_app():
+def test_app(tmp_path):
     """
     Create Flask app fixture
     """
-    app = create_app(TestConfig)
+    class MigrationTestConfig(TestConfig):
+        """Use an isolated database shared with the migration connection."""
+        DEBUG = False
+        SQLALCHEMY_DATABASE_URI = f'sqlite:///{tmp_path / "test.db"}'
+
+    app = create_app(MigrationTestConfig)
     app_context = app.app_context()
     app_context.push()
-    db.create_all()
+    upgrade()
 
     yield app
 

@@ -1,112 +1,187 @@
 ---
--   name: Install Prometheus and Alertmanager
-    apt:
-        name: "{{ packages }}"
-        state: present
-        update_cache: yes
+- name: Validate monitoring settings
+  ansible.builtin.assert:
+    that:
+      - grafana_admin_password | length >= 12
+      - webhook_url is match('https://webhook.site/[0-9a-f-]+$')
+      - domain_name | length > 0
+    fail_msg: Set the Grafana password and webhook URL in private deployment variables.
+  no_log: true
 
--   name: Install Grafana dependencies
-    apt:
-        name:
-            - apt-transport-https
-            - software-properties-common
-            - wget
-        state: present
+- name: Install monitoring packages
+  ansible.builtin.apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: true
 
--   name: Add Grafana GPG key
-    apt_key:
-        url: https://apt.grafana.com/gpg.key
-        state: present
+- name: Install Grafana repository dependencies
+  ansible.builtin.apt:
+    name: [ca-certificates, gnupg]
+    state: present
 
--   name: Add Grafana APT repository
-    apt_repository:
-        repo: "deb https://apt.grafana.com stable main"
-        state: present
-        filename: grafana
+- name: Create APT key directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
 
--   name: Install Grafana
-    apt:
-        name: grafana
-        state: present
-        update_cache: yes
+- name: Download Grafana repository key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: "0644"
 
--   name: Deploy Prometheus configuration
-    template:
-        src: prometheus.yml.j2
-        dest: /etc/prometheus/prometheus.yml
-        mode: "644"
-    notify: restart prometheus
+- name: Add Grafana APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    filename: grafana
+    state: present
 
--   name: Deploy Prometheus alert rules
-    template:
-        src: alert_rules.yml.j2
-        dest: /etc/prometheus/alert_rules.yml
-        mode: "644"
-    notify: restart prometheus
+- name: Install Grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: true
 
--   name: Deploy Alertmanager configuration
-    template:
-        src: alertmanager.yml.j2
-        dest: /etc/prometheus/alertmanager.yml
-        mode: "644"
-    notify: restart alertmanager
+- name: Deploy Prometheus alert rules
+  ansible.builtin.template:
+    src: alert_rules.yml.j2
+    dest: /etc/prometheus/alert_rules.yml
+    mode: "0644"
+    validate: "promtool check rules %s"
+  notify: restart prometheus
 
--   name: Deploy Grafana configuration
-    template:
-        src: grafana.ini.j2
-        dest: /etc/grafana/grafana.ini
-        mode: "640"
-        owner: root
-        group: grafana
-    notify: restart grafana
+- name: Deploy Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: "0644"
+    validate: "promtool check config %s"
+  notify: restart prometheus
 
--   name: Enable and start Prometheus
-    service:
-        name: prometheus
-        state: started
-        enabled: yes
+- name: Deploy Alertmanager configuration
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/prometheus/alertmanager.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0640"
+    validate: "amtool check-config %s"
+  no_log: true
+  notify: restart alertmanager
 
--   name: Enable and start Alertmanager
-    service:
-        name: prometheus-alertmanager
-        state: started
-        enabled: yes
+- name: Deploy Grafana configuration
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    mode: "0640"
+    owner: root
+    group: grafana
+  no_log: true
+  notify: restart grafana
 
--   name: Enable and start Grafana
-    service:
-        name: grafana-server
-        state: started
-        enabled: yes
+- name: Create dashboard directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
+  loop:
+    - /etc/grafana/provisioning/dashboards
+    - /var/lib/grafana/dashboards/microblog
 
--   name: Wait for Grafana to be ready
-    wait_for:
-        port: 3000
-        host: localhost
-        delay: 5
-        timeout: 60
+- name: Provision dashboard provider
+  ansible.builtin.template:
+    src: grafana-dashboards.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/microblog.yml
+    mode: "0644"
+  notify: restart grafana
 
--   name: Check if Prometheus datasource already exists
-    uri:
-        url: "http://localhost:3000/api/datasources/name/Prometheus"
-        user: "{{ grafana_admin_user }}"
-        password: "{{ grafana_admin_password }}"
-        force_basic_auth: yes
-        status_code: [200, 404]
-    register: grafana_ds_check
+- name: Deploy application and infrastructure dashboards
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/var/lib/grafana/dashboards/microblog/{{ item }}"
+    owner: grafana
+    group: grafana
+    mode: "0644"
+  loop:
+    - microblog-application.json
+    - microblog-infrastructure.json
 
--   name: Add Prometheus as Grafana datasource
-    uri:
-        url: "http://localhost:3000/api/datasources"
-        method: POST
-        user: "{{ grafana_admin_user }}"
-        password: "{{ grafana_admin_password }}"
-        force_basic_auth: yes
-        body_format: json
-        body:
-            name: Prometheus
-            type: prometheus
-            url: "http://localhost:9090"
-            access: proxy
-            isDefault: true
-        status_code: 200
-    when: grafana_ds_check.status == 404
+- name: Enable monitoring services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: [prometheus, prometheus-alertmanager, grafana-server]
+
+- name: Apply configuration before using the Grafana API
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Grafana health
+  ansible.builtin.uri:
+    url: http://localhost:3000/grafana/api/health
+    status_code: 200
+  register: grafana_health
+  until: grafana_health.status == 200
+  retries: 12
+  delay: 5
+
+- name: Configure Prometheus using the required Grafana datasource module
+  community.grafana.grafana_datasource:
+    name: Prometheus
+    uid: prometheus
+    grafana_url: http://localhost:3000/grafana
+    grafana_user: "{{ grafana_admin_user }}"
+    grafana_password: "{{ grafana_admin_password }}"
+    ds_type: prometheus
+    ds_url: http://localhost:9090
+    access: proxy
+    is_default: true
+    state: present
+  no_log: true
+
+- name: Confirm both dashboards were provisioned
+  ansible.builtin.uri:
+    url: "http://localhost:3000/grafana/api/dashboards/uid/{{ item }}"
+    user: "{{ grafana_admin_user }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: dashboard_check
+  until: dashboard_check.status == 200
+  retries: 6
+  delay: 5
+  loop: [microblog-application, microblog-infrastructure]
+  no_log: true
+
+- name: Look up the course reviewer account
+  ansible.builtin.uri:
+    url: http://localhost:3000/grafana/api/users/lookup?loginOrEmail=reviewer
+    user: "{{ grafana_admin_user }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: [200, 404]
+  register: reviewer_lookup
+  when: grafana_reviewer_password is defined
+  no_log: true
+
+- name: Create a read-only reviewer account
+  ansible.builtin.uri:
+    url: http://localhost:3000/grafana/api/admin/users
+    method: POST
+    user: "{{ grafana_admin_user }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: Course reviewer
+      login: reviewer
+      password: "{{ grafana_reviewer_password }}"
+      OrgId: 1
+    status_code: 200
+  when:
+    - grafana_reviewer_password is defined
+    - reviewer_lookup.status == 404
+  no_log: true

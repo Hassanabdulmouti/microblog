@@ -1,0 +1,12 @@
+---
+- name: Read updated supervisor configuration
+  ansible.builtin.command: supervisorctl reread
+  listen: Reload supervisor
+- name: Apply supervisor configuration
+  ansible.builtin.command: supervisorctl update
+  listen: Reload supervisor
+- name: Restart application
+  community.general.supervisorctl:
+    name: microblog
+    state: restarted
+  listen: Reload supervisor

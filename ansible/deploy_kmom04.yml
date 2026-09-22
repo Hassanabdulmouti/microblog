@@ -1,0 +1,104 @@
+---
+- name: Bootstrap the fresh Ubuntu servers
+  hosts: devops
+  become: true
+  tasks:
+    - name: Wait for SSH and cloud-init
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+    - name: Finish cloud-init before installing packages
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+    - name: Install administration tools
+      ansible.builtin.apt:
+        name: [acl, python3, python3-venv, python3-pip, unattended-upgrades]
+        update_cache: true
+        state: present
+    - name: Create deployment user without a password
+      ansible.builtin.user:
+        name: deploy
+        shell: /bin/bash
+        password_lock: true
+    - name: Create a swap file for the subscription's 1 GB VMs
+      ansible.builtin.command:
+        argv: [fallocate, -l, 1G, /swapfile]
+        creates: /swapfile
+      register: swap_file
+    - name: Protect swap file
+      ansible.builtin.file:
+        path: /swapfile
+        mode: "0600"
+    - name: Initialize swap
+      ansible.builtin.command: mkswap /swapfile
+      when: swap_file.changed
+    - name: Enable swap
+      ansible.builtin.command: swapon /swapfile
+      when: swap_file.changed
+    - name: Persist swap
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: /swapfile none swap sw 0 0
+    - name: Install node exporter
+      ansible.builtin.include_role:
+        name: node_exporter
+
+- name: Configure the database
+  hosts: database
+  become: true
+  tasks:
+    - name: Install MariaDB and Python driver
+      ansible.builtin.apt:
+        name: [mariadb-server, python3-pymysql]
+        state: present
+    - name: Listen on the private database interface
+      ansible.builtin.copy:
+        dest: /etc/mysql/mariadb.conf.d/60-microblog.cnf
+        content: |
+          [mysqld]
+          bind-address={{ private_ip }}
+          innodb_buffer_pool_size=128M
+          max_connections=40
+        mode: "0644"
+      notify: Restart MariaDB
+    - name: Start MariaDB
+      ansible.builtin.service:
+        name: mariadb
+        state: started
+        enabled: true
+    - ansible.builtin.meta: flush_handlers
+    - name: Create application database
+      community.mysql.mysql_db:
+        name: microblog
+        encoding: utf8mb4
+        login_unix_socket: /run/mysqld/mysqld.sock
+    - name: Create application database account restricted to the app VM
+      community.mysql.mysql_user:
+        name: microblog
+        host: "{{ hostvars[groups['appserver'][0]].private_ip }}"
+        password: "{{ microblog_db_password }}"
+        priv: "microblog.*:ALL"
+        login_unix_socket: /run/mysqld/mysqld.sock
+      no_log: true
+  handlers:
+    - name: Restart MariaDB
+      ansible.builtin.service:
+        name: mariadb
+        state: restarted
+
+- name: Deploy the locally reviewed application snapshot
+  hosts: appserver
+  become: true
+  roles:
+    - deploy_microblog
+
+- name: Configure Prometheus, Grafana and Alertmanager
+  hosts: monitoring
+  become: true
+  roles:
+    - monitoring
+
+- name: Configure public HTTPS and Grafana reverse proxy
+  hosts: loadbalancer
+  become: true
+  roles:
+    - deploy_lb

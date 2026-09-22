@@ -2,7 +2,6 @@
 Contains routes used for authenticating User
 """
 from urllib.parse import urlsplit
-
 from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user
 from app import db
@@ -50,7 +49,7 @@ def login():
             return redirect(url_for('auth.login'))
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get('next')
-        if not next_page or urlsplit(next_page).netloc != '': # if next argument sent. From @login_required
+        if not next_page or urlsplit(next_page).netloc or urlsplit(next_page).scheme:
             next_page = url_for('main.index')
         current_app.logger.debug(f"Next from login {next_page}")
         return redirect(next_page)

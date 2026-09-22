@@ -1,0 +1,54 @@
+name: microblog-kmom04
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_prod
+    ports: ["127.0.0.1:5004:5000"]
+    volumes: ["app-data:/home/microblog/data"]
+    environment:
+      DATABASE_URL: sqlite:////home/microblog/data/app.db
+      SECRET_KEY: local-monitoring-demo-only
+  prometheus:
+    image: prom/prometheus:latest
+    ports: ["127.0.0.1:9094:9090"]
+    volumes:
+      - ./generated/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./generated/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    depends_on: [app, alertmanager]
+  alertmanager:
+    image: prom/alertmanager:latest
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager", "--cluster.listen-address="]
+    ports: ["127.0.0.1:9095:9093"]
+    volumes:
+      - ./generated/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    depends_on: [webhook]
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["127.0.0.1:3004:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: local-monitoring-demo
+      GF_SERVER_ROOT_URL: http://localhost:3004/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./generated/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/microblog.yml:ro
+      - ./local/grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ../ansible/roles/monitoring/files:/var/lib/grafana/dashboards/microblog:ro
+    depends_on: [prometheus]
+  node-exporter:
+    image: prom/node-exporter:latest
+  webhook:
+    image: python:3.12-alpine
+    command: ["python", "/webhook.py"]
+    ports: ["127.0.0.1:8084:8080"]
+    volumes: ["./local/webhook.py:/webhook.py:ro"]
+volumes:
+  app-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

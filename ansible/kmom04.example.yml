@@ -1,0 +1,8 @@
+# Copy to kmom04.private.yml (gitignored) and fill real deployment values.
+domain_name: YOUR-DOMAIN
+grafana_admin_user: admin
+grafana_admin_password: REPLACE-WITH-A-LONG-PASSWORD
+webhook_url: https://webhook.site/REPLACE-WITH-YOUR-TOKEN
+microblog_secret_key: REPLACE-WITH-A-LONG-RANDOM-SECRET
+microblog_database_url: mysql+pymysql://microblog:REPLACE-PASSWORD@DATABASE-PRIVATE-IP/microblog
+app_version: kmom04

@@ -109,3 +109,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Local monitoring configuration and deployment credentials
+monitoring/generated/
+ansible/kmom04.private.yml
+
+.deployment/
+ansible/kmom04.inventory.yml

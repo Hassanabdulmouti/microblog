@@ -1,7 +1,7 @@
 ---
 app_dir: /home/deploy/microblog
 repo_url: "https://github.com/Hassanabdulmouti/microblog.git"
-app_version: "master"
+app_version: "kmom04"
 packages:
     - python3-venv
     - python3-dev

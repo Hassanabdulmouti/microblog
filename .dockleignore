@@ -1,0 +1,5 @@
+# False positive in the official python:3.12-alpine base image:
+# its second apk add uses --no-network after an initial apk add --no-cache.
+# It cannot download/cache an index. Dockle 0.4.15 only recognizes --no-cache.
+# Our Dockerfiles still use --no-cache and Trivy checks their configuration.
+DKL-DI-0004

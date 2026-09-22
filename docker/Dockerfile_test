@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM python:3.8-alpine
+FROM python:3.12-alpine
 # hadolint ignore=DL3018
 RUN apk add --no-cache make && \
     adduser -D microblog
@@ -14,7 +14,7 @@ COPY migrations migrations
 RUN python -m venv .venv && \
     .venv/bin/pip3 install -r requirements/test.txt
 
-ENV FLASK_APP microblog.py
+ENV FLASK_APP=microblog.py
 
 RUN chmod +x test.sh && \
     chown -R microblog:microblog ./
@@ -22,4 +22,3 @@ RUN chmod +x test.sh && \
 USER microblog
 
 ENTRYPOINT ["./test.sh"]
-

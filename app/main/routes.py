@@ -2,20 +2,17 @@
 Contains routes for main purpose of app
 app/main/routes.py
 """
-import subprocess
+import shutil
+# Only used with fixed git arguments, without a shell or request input.
+import subprocess  # nosec B404
 from datetime import datetime
 from flask import render_template, flash, redirect, url_for, request, current_app, jsonify
 from flask_login import current_user, login_required
+from sqlalchemy.exc import SQLAlchemyError
 from app import db
 from app.main.forms import EditProfileForm, PostForm
-from app.models import User, Post
+from app.models import User, Post, followers
 from app.main import bp
-
-
-class MonitoringTestError(Exception):
-    """
-    Exception raised by the monitoring test endpoint.
-    """
 
 
 @bp.before_request
@@ -30,12 +27,14 @@ def before_request():
 
 
 
+class MonitoringTestError(Exception):
+    """Intentional exception for the course monitoring demonstration."""
+
+
 @bp.route('/debug/error')
 def trigger_error():
-    """
-    Route that intentionally raises an error for monitoring tests.
-    """
-    raise MonitoringTestError("Monitoring test error - this is intentional")
+    """Raise a real exception without changing user data."""
+    raise MonitoringTestError('Intentional monitoring demonstration')
 
 
 @bp.route('/version')
@@ -43,14 +42,34 @@ def version():
     """
     Route that returns the current app version (git tag or commit)
     """
+    if current_app.config.get('APP_VERSION'):
+        return jsonify(version=current_app.config['APP_VERSION'])
+    git = shutil.which('git')
+    if git is None:
+        return jsonify(version='unknown')
     try:
-        ver = subprocess.check_output(
-            ['git', 'describe', '--tags', '--always'],
-            stderr=subprocess.DEVNULL
+        # The executable is resolved above and every argument is constant.
+        ver = subprocess.check_output(  # nosec B603
+            [git, 'describe', '--tags', '--always'],
+            stderr=subprocess.DEVNULL,
+            timeout=5,
         ).decode().strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         ver = 'unknown'
     return jsonify(version=ver)
+
+
+@bp.route('/health')
+def health():
+    """Report readiness only when the application's database schema is usable."""
+    try:
+        db.session.execute(db.select(User).limit(1)).first()
+        db.session.execute(db.select(Post).limit(1)).first()
+        db.session.execute(db.select(followers).limit(1)).first()
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify(status='unhealthy'), 503
+    return jsonify(status='healthy')
 
 
 

@@ -1,0 +1,10 @@
+[program:microblog]
+directory={{ app_dir }}
+command={{ app_dir }}/venv/bin/gunicorn --workers 1 --threads 4 --bind 0.0.0.0:8000 --access-logfile - --error-logfile - microblog:app
+user=deploy
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/var/log/microblog/access.log
+stderr_logfile=/var/log/microblog/error.log

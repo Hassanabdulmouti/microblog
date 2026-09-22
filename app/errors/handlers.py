@@ -1,7 +1,7 @@
 """
 Contains error handlers
 """
-from flask import render_template, current_app
+from flask import render_template, current_app, request
 from app import db
 from app.errors import bp
 
@@ -21,5 +21,6 @@ def internal_error(error):
     Error handler for code 500
     """
     current_app.logger.info(error)
+    current_app.extensions['monitoring_errors'].labels(endpoint=request.endpoint or 'unknown').inc()
     db.session.rollback()
     return render_template('errors/500.html'), 500
