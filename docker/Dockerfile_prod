@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-alpine
+
+RUN apk upgrade --no-cache && adduser -D microblog
+WORKDIR /home/microblog
+
+COPY requirements/prod.txt requirements/prod.txt
+COPY requirements.txt ./
+RUN python -m venv .venv && \
+    .venv/bin/pip install --no-cache-dir --upgrade pip && \
+    .venv/bin/pip install --no-cache-dir -r requirements.txt && \
+    .venv/bin/python -m pip uninstall -y pip && \
+    python -m pip uninstall -y pip
+
+COPY --chown=microblog:microblog app app
+COPY --chown=microblog:microblog migrations migrations
+COPY --chown=microblog:microblog microblog.py boot.sh ./
+RUN chmod +x boot.sh && chown microblog:microblog /home/microblog
+
+ENV FLASK_APP=microblog.py
+USER microblog
+EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD [".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+ENTRYPOINT ["./boot.sh"]
